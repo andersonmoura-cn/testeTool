@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Tabuleiro 2x2 estilizado com uma espada -->
+    <path android:fillColor="#FFE8D9B5" android:pathData="M30,30h24v24h-24z M54,54h24v24h-24z"/>
+    <path android:fillColor="#FF8A6A45" android:pathData="M54,30h24v24h-24z M30,54h24v24h-24z"/>
+    <path android:fillColor="#FFFFFFFF" android:pathData="M70,34 L74,38 L46,66 L42,62 Z"/>
+    <path android:fillColor="#FFFFC107" android:pathData="M38,60 L48,70 L45,73 L35,63 Z M36,70 L40,74 L37,77 L33,73 Z"/>
+</vector>
