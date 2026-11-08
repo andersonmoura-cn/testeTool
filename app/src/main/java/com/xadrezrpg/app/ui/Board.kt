@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -108,7 +109,8 @@ private fun Cell(
             .size(size)
             .background(if (dim) base.copy(alpha = 0.35f) else base)
             .then(if (selected) Modifier.border(3.dp, Palette.selected) else Modifier)
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .testTag("cell_${pos.x}_${pos.y}"),
         contentAlignment = Alignment.Center,
     ) {
         when (mark) {
