@@ -19,12 +19,17 @@ jobs:
           java-version: 17
 
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.3"
+
+      - name: Restaurar chave de assinatura (debug)
+        run: base64 -d app/debug.keystore.b64 > app/debug.keystore
 
       - name: Testes do motor de regras
-        run: ./gradlew -p engine test --no-daemon
+        run: gradle -p engine test --no-daemon
 
       - name: Gerar APK
-        run: ./gradlew :app:assembleDebug --no-daemon
+        run: gradle :app:assembleDebug --no-daemon
 
       - name: Renomear APK
         run: cp app/build/outputs/apk/debug/app-debug.apk XadrezRPG.apk
