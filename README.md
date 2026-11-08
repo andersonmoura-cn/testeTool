@@ -53,6 +53,7 @@ Os modos do Escudeiro ficam ativos até você escolher o outro modo num turno fu
 ## Compilar
 
 ```bash
-./gradlew -p engine test        # testes das regras (não precisa do Android SDK)
-./gradlew :app:assembleDebug    # APK (precisa do Android SDK)
+gradle -p engine test        # testes das regras (não precisa do Android SDK)
+base64 -d app/debug.keystore.b64 > app/debug.keystore
+gradle :app:assembleDebug    # APK (precisa do Android SDK)
 ```
