@@ -9,3 +9,4 @@ captures/
 app/debug.keystore
 gradle/wrapper/gradle-wrapper.jar
 *.zip
+*.apk
