@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -41,7 +42,7 @@ class GameFlowTest {
         node.performClick()
     }
     private fun cell(x: Int, y: Int) = rule.onNodeWithTag("cell_${x}_$y").performClick()
-    private fun expect(text: String) = rule.onNodeWithText(text, substring = true).assertExists()
+    private fun expect(text: String) = rule.onAllNodesWithText(text, substring = true).onFirst().assertExists()
 
     @Test
     fun fullLocalGameFlow() {

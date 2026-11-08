@@ -132,16 +132,18 @@ fun PieceToken(piece: CellPiece, size: Dp) {
             .border(2.dp, Color.White.copy(alpha = 0.7f), CircleShape),
         contentAlignment = Alignment.Center,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(piece.type.icon(), fontSize = (size.value * 0.36f).sp, textAlign = TextAlign.Center)
-            Text(
-                "♥".repeat(piece.hp),
-                color = Color.White,
-                fontSize = (size.value * 0.16f).sp,
-                fontWeight = FontWeight.Bold,
-                lineHeight = (size.value * 0.18f).sp,
-            )
-        }
+        Text(piece.type.icon(), fontSize = (size.value * 0.4f).sp, textAlign = TextAlign.Center)
+        // Vida: número em destaque no canto inferior
+        Text(
+            "${piece.hp}",
+            color = Color.White,
+            fontSize = (size.value * 0.24f).sp,
+            fontWeight = FontWeight.Black,
+            lineHeight = (size.value * 0.26f).sp,
+            modifier = Modifier.align(Alignment.BottomEnd)
+                .background(Color.Black.copy(alpha = 0.75f), CircleShape)
+                .padding(horizontal = 4.dp),
+        )
         if (piece.frozen) {
             Text("❄", fontSize = (size.value * 0.28f).sp, color = Color(0xFF80DEEA),
                 modifier = Modifier.align(Alignment.TopEnd).padding(1.dp))

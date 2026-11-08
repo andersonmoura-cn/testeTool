@@ -197,7 +197,7 @@ private fun SetupView(session: Session, state: GameState, onExit: () -> Unit) {
                 ) {
                     Text(t.icon(), fontSize = 24.sp)
                     Text(t.label, color = Palette.text, fontSize = 11.sp, maxLines = 1)
-                    Text("♥".repeat(t.maxHp), color = Palette.text, fontSize = 11.sp)
+                    Text("Vida ${t.maxHp}", color = Palette.text, fontSize = 11.sp)
                 }
             }
         }

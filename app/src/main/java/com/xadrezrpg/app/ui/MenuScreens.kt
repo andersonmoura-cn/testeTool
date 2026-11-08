@@ -140,7 +140,7 @@ fun RulesScreen(onBack: () -> Unit) {
             })
             for (a in t.abilities) RuleText("• ${a.label}: ${a.description}")
         }
-        RuleText("Símbolos: ❄ = congelada · P = escudeiro protegendo · R = escudeiro refletindo · ♥ = vida.")
+        RuleText("Símbolos: ❄ = congelada · P = escudeiro protegendo · R = escudeiro refletindo · número no canto da peça = vida.")
         BigButton("Voltar", onClick = onBack)
     }
 }
