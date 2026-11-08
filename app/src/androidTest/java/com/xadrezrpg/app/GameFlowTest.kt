@@ -74,47 +74,77 @@ class GameFlowTest {
         expect("Peças: 8 × 8")
         shot("04_inicio_partida")
 
-        // Turno 1 (Azul): Espadachim (3,1) anda como torre até (3,5) e usa Golpe divino em (3,6)
+        // Turno 1 (Azul): Espadachim (3,1) anda como torre até (3,5) e DEPOIS usa Golpe divino em (3,6)
         cell(3, 1)
         shot("05_movimentos_espadachim")
         cell(3, 5)
+        expect("Mover: feito")
         click("Golpe divino")
+        expect("Toque num alvo com anel laranja.")
+        expect("-2") // dano previsto em cima dos alvos possíveis
+        shot("06_alvos_golpe_divino")
         cell(3, 6)
-        shot("06_alvo_golpe_divino")
         cell(3, 6) // toque de novo no alvo confirma
         expect("Espadachim Vermelho levou 2 de dano e caiu!")
-        expect("Vez do Vermelho") // moveu + habilidade = turno acaba sozinho
         expect("Peças: 8 × 7")
+        // O turno NÃO passa sozinho
+        expect("Vez do Azul")
+        expect("Aperte \"Encerrar turno\"")
         shot("07_apos_golpe_divino")
+        click("Encerrar turno")
+        expect("Vez do Vermelho")
 
-        // Turno 2 (Vermelho): Espadachim (4,6) usa Corte giratório (atinge aliados também)
+        // Turno 2 (Vermelho): Espadachim (4,6) usa Corte giratório (atinge aliados também) e depois anda
         cell(4, 6)
         click("Corte giratório")
+        expect("-1")
         shot("08_area_corte_giratorio")
         click("Usar Corte giratório")
         expect("Espadachim Azul levou 1 de dano (1 de vida).")
         expect("Escudeiro Vermelho levou 1 de dano (2 de vida).")
         expect("Conjurador Vermelho levou 1 de dano e caiu!")
         expect("Peças: 8 × 6")
-        // Depois da habilidade ainda pode mover: anda até (4,4) e o turno acaba
         cell(4, 4)
+        expect("Vez do Vermelho")
+        click("Encerrar turno")
         expect("Vez do Azul")
         shot("09_apos_corte_giratorio")
 
-        // Turno 3 (Azul): Escudeiro (2,1) ativa Proteger e encerra o turno
+        // Turno 3 (Azul): pré-visualiza a Chuva de flechas do Atirador (1,0), cancela e usa o Escudeiro
+        cell(1, 0)
+        click("Chuva de flechas")
+        expect("Amarelo = alcance")
+        shot("10_alcance_chuva_de_flechas")
+        cell(3, 3)
+        expect("Vermelho = área atingida")
+        shot("11_area_chuva_de_flechas")
+        click("Cancelar")
         cell(2, 1)
         click("Proteger")
         click("Usar Proteger")
         expect("Proteger ✓")
         click("Encerrar turno")
         expect("Vez do Vermelho")
-        shot("10_escudeiro_proteger")
+        shot("12_escudeiro_proteger_aura")
 
-        // Desistência
+        // Turno 4 (Vermelho): Conjurador (2,7) usa Choque do trovão em X centrado em (3,5)
+        cell(2, 7)
+        click("Choque do trovão")
+        cell(3, 5)
+        expect("-1")
+        shot("13_area_choque_do_trovao")
+        cell(3, 5)
+        expect("Espadachim Azul levou 1 de dano e caiu!")
+        expect("Espadachim Vermelho levou 1 de dano (1 de vida).")
+        expect("Peças: 7 × 6")
+        click("Encerrar turno")
+        expect("Vez do Azul")
+
+        // Desistência (Azul desiste)
         click("Desistir")
         rule.onNodeWithText("O adversário vence a partida.").assertExists()
         rule.onAllNodesWithText("Desistir").onLast().performClick() // botão do diálogo
-        expect("Azul venceu!")
-        shot("11_fim_de_jogo")
+        expect("Vermelho venceu!")
+        shot("14_fim_de_jogo")
     }
 }

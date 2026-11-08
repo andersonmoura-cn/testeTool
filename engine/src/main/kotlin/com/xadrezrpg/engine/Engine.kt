@@ -100,7 +100,6 @@ object Engine {
         val w = World(s.copy(activePieceId = p.id, abilityUsed = true))
         w.log("${p.type.label} ${playerName(player)} usou ${a.ability.label}.")
         when (a.ability) {
-            Ability.TELEPORTE -> w.update(p.id) { it.copy(pos = a.target!!) }
             Ability.CONGELAMENTO -> {
                 for (cell in Rules.abilityArea(s, p, a.ability, a.target)) {
                     val victim = w.at(cell) ?: continue
@@ -109,7 +108,7 @@ object Engine {
                     w.log("${victim.type.label} ${playerName(victim.owner)} foi congelado.")
                 }
             }
-            Ability.CORTE_GIRATORIO, Ability.CHUVA_DE_FLECHAS -> {
+            Ability.CORTE_GIRATORIO, Ability.CHUVA_DE_FLECHAS, Ability.CHOQUE_DO_TROVAO -> {
                 for (cell in Rules.abilityArea(s, p, a.ability, a.target)) {
                     val victim = w.at(cell) ?: continue
                     w.damage(victim.id, 1, attackerId = p.id, singleTarget = false)
@@ -135,12 +134,9 @@ object Engine {
     fun nextOwnTurn(turn: Int, owner: Int): Int = if (turn % 2 == owner) turn + 2 else turn + 1
 
     private fun afterAction(s0: GameState, msg: String?): GameState {
-        var s = if (msg != null) s0.copy(log = s0.log + msg) else s0
-        s = checkVictory(s)
-        if (s.phase != Phase.PLAYING) return s
-        val activeAlive = s.activePieceId?.let { s.piece(it) } != null
-        if ((s.moved && s.abilityUsed) || !activeAlive) return endTurn(s, null)
-        return s
+        // O turno só passa quando o jogador aperta "Encerrar turno".
+        val s = if (msg != null) s0.copy(log = s0.log + msg) else s0
+        return checkVictory(s)
     }
 
     private fun checkVictory(s: GameState): GameState {

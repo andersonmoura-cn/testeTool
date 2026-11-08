@@ -203,7 +203,9 @@ private fun SetupView(session: Session, state: GameState, onExit: () -> Unit) {
         }
         BoardView(
             pieceAt = { pos -> placements.firstOrNull { it.pos == pos }?.let { CellPiece(it.type, player, it.type.maxHp) } },
-            markAt = { pos -> if (pos.y in rows && placements.none { it.pos == pos } && placements.size < MAX_PIECES) Mark.MOVE else Mark.NONE },
+            decoAt = { pos ->
+                CellDeco(mark = if (pos.y in rows && placements.none { it.pos == pos } && placements.size < MAX_PIECES) Mark.MOVE else Mark.NONE)
+            },
             selected = null,
             flipped = session.myPlayer == 1,
             dimRow = { it !in rows },
@@ -235,43 +237,100 @@ private fun SetupView(session: Session, state: GameState, onExit: () -> Unit) {
 private fun GameView(session: Session, state: GameState, onExit: () -> Unit) {
     val actingPlayer = session.myPlayer ?: state.currentPlayer
     val myTurn = state.phase == Phase.PLAYING && state.currentPlayer == actingPlayer
+    val flipped = session.myPlayer == 1
 
     var selectedId by remember { mutableStateOf<Int?>(null) }
     var ability by remember { mutableStateOf<Ability?>(null) }
+    /** Alvo que vai para o motor de regras. */
     var pendingTarget by remember { mutableStateOf<Pos?>(null) }
+    /** Casa tocada pelo jogador (tocar de novo confirma). */
+    var pendingTap by remember { mutableStateOf<Pos?>(null) }
     var confirmResign by remember { mutableStateOf(false) }
 
     // Ao mudar de turno ou de peça ativa, ajusta a seleção.
-    LaunchedEffect(state.turn, state.activePieceId, state.abilityUsed) {
+    LaunchedEffect(state.turn, state.activePieceId, state.abilityUsed, state.moved) {
         ability = null
         pendingTarget = null
-        selectedId = if (myTurn) state.activePieceId else selectedId?.takeIf { state.piece(it) != null }
+        pendingTap = null
+        selectedId = if (myTurn) state.activePieceId ?: selectedId?.takeIf { id ->
+            state.piece(id)?.let { Rules.canAct(state, actingPlayer, it) } == true
+        } else selectedId?.takeIf { state.piece(it) != null }
     }
 
     val selected: Piece? = selectedId?.let { state.piece(it) }
     val canAct = selected != null && myTurn && Rules.canAct(state, actingPlayer, selected)
-    val moves = if (canAct && !state.moved && ability == null) Rules.legalMoves(state, selected!!).toSet() else emptySet()
-    val targets = if (canAct && ability != null) Rules.abilityTargets(state, selected!!, ability!!).toSet() else emptySet()
-    val area = if (canAct && ability != null && (!ability!!.needsTarget || pendingTarget != null))
-        Rules.abilityArea(state, selected!!, ability!!, pendingTarget).toSet() else emptySet()
+    val ab = if (canAct) ability else null
 
-    fun confirmAbility() {
-        val a = ability ?: return
-        val p = selected ?: return
-        session.act(Action.UseAbility(p.id, a, if (a.needsTarget) pendingTarget else null))
+    val moves = if (canAct && !state.moved && ab == null) Rules.legalMoves(state, selected!!).toSet() else emptySet()
+    val targets = if (ab != null) Rules.abilityTargets(state, selected!!, ab).toSet() else emptySet()
+
+    // Para a Chuva de flechas, a casa tocada vira o canto do 2x2 (de preferência o canto
+    // superior esquerdo de quem está olhando), escolhendo um canto válido dentro do alcance.
+    fun resolveTarget(tap: Pos): Pos? {
+        if (ab != Ability.CHUVA_DE_FLECHAS) return tap.takeIf { it in targets }
+        // Âncora do motor = canto com menor x e menor y. Ordem de preferência (visual):
+        // casa tocada no canto superior-esquerdo, superior-direito, inferior-esquerdo, inferior-direito.
+        val candidates = if (!flipped) listOf(
+            Pos(tap.x, tap.y - 1), Pos(tap.x - 1, tap.y - 1), Pos(tap.x, tap.y), Pos(tap.x - 1, tap.y),
+        ) else listOf(
+            Pos(tap.x - 1, tap.y), Pos(tap.x, tap.y), Pos(tap.x - 1, tap.y - 1), Pos(tap.x, tap.y - 1),
+        )
+        return candidates.firstOrNull { it in targets }
+    }
+
+    // Alcance (amarelo): casas que podem ser tocadas para escolher o alvo, ou casas afetadas pelo modo do escudeiro.
+    val rangeCells: Set<Pos> = when (ab) {
+        null, Ability.GOLPE_DIVINO, Ability.CORTE_GIRATORIO -> emptySet()
+        Ability.CHUVA_DE_FLECHAS -> targets.flatMap { Rules.abilityArea(state, selected!!, ab, it) }.toSet()
+        Ability.PROTEGER, Ability.REFLETIR -> Rules.neighbors(selected!!.pos).toSet()
+        else -> targets
+    }
+    val area: Set<Pos> = when {
+        ab == null || ab == Ability.PROTEGER || ab == Ability.REFLETIR -> emptySet()
+        !ab.needsTarget -> Rules.abilityArea(state, selected!!, ab, null).toSet()
+        pendingTarget != null -> Rules.abilityArea(state, selected!!, ab, pendingTarget).toSet()
+        else -> emptySet()
+    }
+    val damage: Map<Pos, Int> = when {
+        ab == null -> emptyMap()
+        ab == Ability.GOLPE_DIVINO && pendingTarget == null -> targets.associateWith { 2 }
+        area.isEmpty() -> emptyMap()
+        else -> Rules.previewDamage(state, selected!!, ab, pendingTarget)
+    }
+    val ready = ab != null && (!ab.needsTarget || pendingTarget != null)
+
+    fun cancelAbility() {
         ability = null
         pendingTarget = null
+        pendingTap = null
+    }
+
+    fun confirmAbility() {
+        val a = ab ?: return
+        val p = selected ?: return
+        session.act(Action.UseAbility(p.id, a, if (a.needsTarget) pendingTarget else null))
+        cancelAbility()
     }
 
     fun onCell(pos: Pos) {
         val piece = state.pieceAt(pos)
-        if (ability != null && canAct) {
-            if (ability!!.needsTarget && pos in targets) {
-                if (pendingTarget == pos) confirmAbility() else pendingTarget = pos
+        if (ab != null) {
+            if (ab.needsTarget) {
+                if (pendingTap == pos) {
+                    confirmAbility()
+                    return
+                }
+                val t = resolveTarget(pos)
+                if (t != null) {
+                    pendingTarget = t
+                    pendingTap = pos
+                    return
+                }
+            } else if (pos in area || pos == selected?.pos) {
+                confirmAbility()
                 return
             }
-            ability = null
-            pendingTarget = null
+            cancelAbility()
         }
         if (canAct && pos in moves) {
             session.act(Action.Move(selected!!.id, pos))
@@ -291,18 +350,31 @@ private fun GameView(session: Session, state: GameState, onExit: () -> Unit) {
         TurnBanner(session, state, myTurn)
         BoardView(
             pieceAt = { pos ->
-                state.pieceAt(pos)?.let { CellPiece(it.type, it.owner, it.hp, state.isFrozen(it) || it.frozenTurn > state.turn, it.shieldMode) }
-            },
-            markAt = { pos ->
-                when {
-                    pos in area -> Mark.AREA
-                    pos in targets -> Mark.TARGET
-                    pos in moves -> Mark.MOVE
-                    else -> Mark.NONE
+                state.pieceAt(pos)?.let {
+                    val aura = when {
+                        it.type == PieceType.ESCUDEIRO && it.shieldMode == ShieldMode.REFLETIR -> Aura.REFLECT
+                        it.type == PieceType.ESCUDEIRO && it.shieldMode == ShieldMode.PROTEGER -> Aura.PROTECTED
+                        Rules.isProtected(state, it) -> Aura.PROTECTED
+                        else -> Aura.NONE
+                    }
+                    CellPiece(it.type, it.owner, it.hp, state.isFrozen(it) || it.frozenTurn > state.turn, it.shieldMode, aura)
                 }
             },
+            decoAt = { pos ->
+                CellDeco(
+                    mark = when {
+                        pos in area -> Mark.AREA
+                        ab == Ability.GOLPE_DIVINO && pos in targets -> Mark.TARGET
+                        pos in moves -> Mark.MOVE
+                        else -> Mark.NONE
+                    },
+                    range = pos in rangeCells && pos !in area,
+                    damage = damage[pos],
+                    freeze = ab == Ability.CONGELAMENTO && pos in area,
+                )
+            },
             selected = selected?.pos,
-            flipped = session.myPlayer == 1,
+            flipped = flipped,
             onCell = ::onCell,
         )
 
@@ -319,24 +391,29 @@ private fun GameView(session: Session, state: GameState, onExit: () -> Unit) {
                     val active = a == Ability.PROTEGER && selected.shieldMode == ShieldMode.PROTEGER ||
                         a == Ability.REFLETIR && selected.shieldMode == ShieldMode.REFLETIR
                     Button(
-                        onClick = { ability = if (isSel) null else a; pendingTarget = null },
+                        onClick = { if (isSel) cancelAbility() else { cancelAbility(); ability = a } },
                         enabled = !state.abilityUsed,
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(containerColor = if (isSel) Palette.target else Palette.panel),
                     ) { Text(a.label + if (active) " ✓" else "", fontSize = 13.sp, color = Palette.text) }
                 }
             }
-            ability?.let { a ->
+            ab?.let { a ->
                 Text(a.description, color = Palette.muted, fontSize = 13.sp)
-                val ready = !a.needsTarget || pendingTarget != null
-                Text(
-                    if (ready) "Área em vermelho. Confirme (ou toque de novo no alvo)." else "Escolha um alvo nas casas destacadas.",
-                    color = Palette.text, fontSize = 13.sp,
-                )
+                val hint = when {
+                    a == Ability.PROTEGER || a == Ability.REFLETIR ->
+                        "Amarelo = vizinhos cobertos pelo modo. Aperte Usar para ativar."
+                    a == Ability.GOLPE_DIVINO && targets.isEmpty() -> "Nenhuma peça vizinha para atacar."
+                    a.needsTarget && targets.isEmpty() -> "Nenhum alvo possível daqui."
+                    a == Ability.GOLPE_DIVINO && !ready -> "Toque num alvo com anel laranja."
+                    !ready -> "Amarelo = alcance. Toque numa casa amarela para mirar."
+                    else -> "Vermelho = área atingida · -N = dano. Toque de novo ou aperte Usar."
+                }
+                Text(hint, color = Palette.text, fontSize = 13.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     Button(onClick = ::confirmAbility, enabled = ready, modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(containerColor = Palette.red)) { Text("Usar ${a.label}") }
-                    OutlinedButton(onClick = { ability = null; pendingTarget = null }, modifier = Modifier.weight(1f)) {
+                    OutlinedButton(onClick = ::cancelAbility, modifier = Modifier.weight(1f)) {
                         Text("Cancelar", color = Palette.text)
                     }
                 }
@@ -347,12 +424,21 @@ private fun GameView(session: Session, state: GameState, onExit: () -> Unit) {
             )
         }
 
+        if (myTurn && (state.moved || state.abilityUsed)) {
+            Text(
+                if (state.moved && state.abilityUsed) "Ações feitas. Aperte \"Encerrar turno\" para passar a vez."
+                else "Quando terminar, aperte \"Encerrar turno\".",
+                color = Palette.text, fontSize = 13.sp,
+            )
+        }
+
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            val emphasize = myTurn && state.moved && state.abilityUsed
             Button(
                 onClick = { session.act(Action.EndTurn) },
                 enabled = myTurn,
                 modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = Palette.blue),
+                colors = ButtonDefaults.buttonColors(containerColor = if (emphasize) Palette.green else Palette.blue),
             ) { Text("Encerrar turno") }
             OutlinedButton(onClick = { confirmResign = true }, enabled = state.phase == Phase.PLAYING, modifier = Modifier.weight(1f)) {
                 Text("Desistir", color = Palette.text)

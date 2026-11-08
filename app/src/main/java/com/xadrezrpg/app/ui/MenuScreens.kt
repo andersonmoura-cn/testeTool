@@ -123,7 +123,7 @@ fun RulesScreen(onBack: () -> Unit) {
         RuleText(
             """
             • Tabuleiro 8x8. Cada jogador monta seu exército com até 8 peças, em qualquer combinação, nas suas 2 primeiras fileiras.
-            • Na sua vez, escolha UMA peça. Ela pode MOVER e usar UMA de suas 2 habilidades, em qualquer ordem (ambos opcionais).
+            • Na sua vez, escolha UMA peça. Ela pode MOVER e usar UMA de suas 2 habilidades, em qualquer ordem (ambos opcionais). A vez só passa quando você aperta "Encerrar turno".
             • Movimento só para casas vazias — não há captura. Peças morrem ao chegar a 0 de vida.
             • Habilidades de área atingem também suas peças!
             • Distâncias contam casas em qualquer direção (inclusive diagonal).
@@ -140,6 +140,7 @@ fun RulesScreen(onBack: () -> Unit) {
             })
             for (a in t.abilities) RuleText("• ${a.label}: ${a.description}")
         }
+        RuleText("Aura dourada = peça protegida por escudeiro · aura roxa = escudeiro refletindo.")
         RuleText("Símbolos: ❄ = congelada · P = escudeiro protegendo · R = escudeiro refletindo · número no canto da peça = vida.")
         BigButton("Voltar", onClick = onBack)
     }

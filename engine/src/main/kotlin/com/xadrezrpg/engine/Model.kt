@@ -31,7 +31,7 @@ enum class PieceType(val label: String, val symbol: String, val maxHp: Int) {
 
 @Serializable
 enum class Ability(val owner: PieceType, val label: String, val description: String) {
-    TELEPORTE(PieceType.CONJURADOR, "Teletransporte", "Salto extra em L (como cavalo), sem dano."),
+    CHOQUE_DO_TROVAO(PieceType.CONJURADOR, "Choque do trovão", "1 de dano em X (centro + 4 diagonais vizinhas), a até 3 casas."),
     CONGELAMENTO(PieceType.CONJURADOR, "Congelamento", "Área 3x3 a até 5 casas. Peças atingidas ficam paradas no próximo turno do dono. Sem dano."),
     CORTE_GIRATORIO(PieceType.ESPADACHIM, "Corte giratório", "1 de dano em todas as peças vizinhas (inclusive aliadas)."),
     GOLPE_DIVINO(PieceType.ESPADACHIM, "Golpe divino", "2 de dano em um alvo vizinho."),
@@ -42,7 +42,7 @@ enum class Ability(val owner: PieceType, val label: String, val description: Str
 
     /** Habilidade que precisa de uma casa alvo escolhida no tabuleiro. */
     val needsTarget: Boolean
-        get() = this == TELEPORTE || this == CONGELAMENTO || this == GOLPE_DIVINO ||
+        get() = this == CHOQUE_DO_TROVAO || this == CONGELAMENTO || this == GOLPE_DIVINO ||
             this == CHUVA_DE_FLECHAS || this == FLECHA_PERFURANTE
 }
 

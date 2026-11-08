@@ -24,6 +24,7 @@ Dá para jogar em **dois celulares na mesma rede Wi‑Fi** ou no **mesmo aparelh
 
 - Tabuleiro 8x8. Cada jogador escolhe **até 8 peças**, em qualquer combinação, e as posiciona nas **suas 2 primeiras fileiras**.
 - Na sua vez, você escolhe **uma peça**. Ela pode **mover e usar uma das suas 2 habilidades**, em qualquer ordem, e as duas ações são opcionais.
+  A vez só passa quando você aperta **Encerrar turno**.
   As outras peças ficam sem habilidade, exceto os modos contínuos do Escudeiro.
 - O movimento só vai para casas vazias, **sem captura**. A peça morre quando a vida chega a 0.
 - **As habilidades de área também atingem suas próprias peças.**
@@ -32,7 +33,7 @@ Dá para jogar em **dois celulares na mesma rede Wi‑Fi** ou no **mesmo aparelh
 
 | Classe | Vida | Movimento | Habilidade 1 | Habilidade 2 |
 |---|---|---|---|---|
-| 🔮 Conjurador | 1 | Teletransporte em L (cavalo) | **Teletransporte:** salto extra em L, sem dano | **Congelamento:** área 3x3 com centro a até 5 casas; as peças ficam paradas no próximo turno do dono, sem dano |
+| 🔮 Conjurador | 1 | Teletransporte em L (cavalo) | **Choque do trovão:** 1 de dano em X (centro + 4 diagonais vizinhas), a até 3 casas | **Congelamento:** área 3x3 com centro a até 5 casas; as peças ficam paradas no próximo turno do dono, sem dano |
 | 🏹 Atirador | 1 | Diagonal (bispo) | **Chuva de flechas:** 1 de dano em área 2x2 a até 3 casas | **Flecha perfurante:** 1 de dano em linha vertical/horizontal, atravessando até 2 peças |
 | 🗡️ Espadachim | 2 | Reto (torre) | **Corte giratório:** 1 de dano em todas as 8 casas vizinhas | **Golpe divino:** 2 de dano em um alvo vizinho |
 | 🛡️ Escudeiro | 3 | 1 casa em qualquer direção | **Proteger** (modo contínuo): toma o dano que mataria um aliado vizinho; não protege outro escudeiro, para evitar morte em cadeia | **Refletir** (modo contínuo): devolve ao atacante o dano de alvo único vindo de peça vizinha e não toma nada |

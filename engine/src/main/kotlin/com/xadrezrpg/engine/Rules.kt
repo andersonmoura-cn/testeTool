@@ -4,6 +4,7 @@ package com.xadrezrpg.engine
 object Rules {
     const val FREEZE_RANGE = 5
     const val ARROW_RAIN_RANGE = 3
+    const val THUNDER_RANGE = 3
     const val PIERCE_MAX_HITS = 2
 
     private val KNIGHT = listOf(
@@ -43,7 +44,7 @@ object Rules {
 
     /** Casas que podem ser escolhidas como alvo da habilidade. Vazio para habilidades sem alvo. */
     fun abilityTargets(s: GameState, piece: Piece, ability: Ability): List<Pos> = when (ability) {
-        Ability.TELEPORTE -> knightJumps(s, piece.pos)
+        Ability.CHOQUE_DO_TROVAO -> allCells().filter { it.dist(piece.pos) <= THUNDER_RANGE }
         Ability.CONGELAMENTO -> allCells().filter { it.dist(piece.pos) <= FREEZE_RANGE }
         Ability.GOLPE_DIVINO -> neighbors(piece.pos).filter { s.pieceAt(it) != null }
         Ability.CHUVA_DE_FLECHAS -> allCells().filter {
@@ -57,7 +58,9 @@ object Rules {
 
     /** Casas afetadas pela habilidade (para pré-visualização e resolução). */
     fun abilityArea(s: GameState, piece: Piece, ability: Ability, target: Pos?): List<Pos> = when (ability) {
-        Ability.TELEPORTE -> listOfNotNull(target)
+        Ability.CHOQUE_DO_TROVAO -> target?.let { t ->
+            (listOf(t) + DIAG.map { t + it }).filter { it.inBoard() }
+        } ?: emptyList()
         Ability.CONGELAMENTO -> target?.let { t ->
             (-1..1).flatMap { dy -> (-1..1).map { dx -> Pos(t.x + dx, t.y + dy) } }.filter { it.inBoard() }
         } ?: emptyList()
@@ -66,7 +69,7 @@ object Rules {
         Ability.CHUVA_DE_FLECHAS -> target?.let { t ->
             listOf(t, Pos(t.x + 1, t.y), Pos(t.x, t.y + 1), Pos(t.x + 1, t.y + 1)).filter { it.inBoard() }
         } ?: emptyList()
-        Ability.FLECHA_PERFURANTE -> target?.let { pierceLine(piece.pos, it) } ?: emptyList()
+        Ability.FLECHA_PERFURANTE -> target?.let { pierceArea(s, piece.pos, it) } ?: emptyList()
         Ability.PROTEGER, Ability.REFLETIR -> listOf(piece.pos)
     }
 
@@ -82,6 +85,34 @@ object Rules {
         }
         return out
     }
+
+    /** Linha da flecha perfurante até (e incluindo) a 2ª peça atingida. */
+    fun pierceArea(s: GameState, from: Pos, target: Pos): List<Pos> {
+        val out = mutableListOf<Pos>()
+        var hits = 0
+        for (p in pierceLine(from, target)) {
+            out += p
+            if (s.pieceAt(p) != null && ++hits >= PIERCE_MAX_HITS) break
+        }
+        return out
+    }
+
+    /** Dano previsto (sem contar proteção/reflexo) em cada casa ocupada atingida pela habilidade. */
+    fun previewDamage(s: GameState, piece: Piece, ability: Ability, target: Pos?): Map<Pos, Int> {
+        val dmg = when (ability) {
+            Ability.GOLPE_DIVINO -> 2
+            Ability.CORTE_GIRATORIO, Ability.CHUVA_DE_FLECHAS, Ability.FLECHA_PERFURANTE, Ability.CHOQUE_DO_TROVAO -> 1
+            else -> return emptyMap()
+        }
+        return abilityArea(s, piece, ability, target).filter { s.pieceAt(it) != null }.associateWith { dmg }
+    }
+
+    /** Peça (não escudeiro) vizinha de um escudeiro aliado em modo Proteger. */
+    fun isProtected(s: GameState, p: Piece): Boolean =
+        p.type != PieceType.ESCUDEIRO && s.pieces.any {
+            it.owner == p.owner && it.type == PieceType.ESCUDEIRO &&
+                it.shieldMode == ShieldMode.PROTEGER && it.pos.isNeighbor(p.pos)
+        }
 
     /** O jogador pode escolher esta peça para agir agora? */
     fun canAct(s: GameState, player: Int, piece: Piece): Boolean {

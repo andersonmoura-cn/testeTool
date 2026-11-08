@@ -68,15 +68,33 @@ class EngineTest {
     }
 
     @Test
-    fun moveAndAbilityInSameTurnThenAutoEnd() {
+    fun moveThenAbilityWithSamePieceTurnOnlyEndsOnButton() {
         var s = game(p(1, PieceType.ESPADACHIM, 0, 0, 0), p(2, PieceType.ESCUDEIRO, 1, 2, 2))
         s = Engine.apply(s, 0, Action.Move(1, Pos(1, 0)))
         assertEquals(0, s.currentPlayer)
         // Segundo movimento no mesmo turno não é permitido
         assertFailsWith<RuleException> { Engine.apply(s, 0, Action.Move(1, Pos(1, 1))) }
         s = Engine.apply(s, 0, Action.UseAbility(1, Ability.CORTE_GIRATORIO))
+        // Turno NÃO passa sozinho
+        assertEquals(0, s.currentPlayer)
+        assertFailsWith<RuleException> { Engine.apply(s, 0, Action.UseAbility(1, Ability.CORTE_GIRATORIO)) }
+        s = Engine.apply(s, 0, Action.EndTurn)
         assertEquals(1, s.currentPlayer)
         assertNull(s.activePieceId)
+    }
+
+    @Test
+    fun everyClassCanMoveThenUseAbility() {
+        for (type in PieceType.entries) {
+            var s = game(p(1, type, 0, 3, 3), p(2, PieceType.ESCUDEIRO, 1, 7, 7), p(3, PieceType.ESCUDEIRO, 1, 0, 7))
+            val to = Rules.legalMoves(s, s.piece(1)!!).first()
+            s = Engine.apply(s, 0, Action.Move(1, to))
+            val a = type.abilities.first { a -> !a.needsTarget || Rules.abilityTargets(s, s.piece(1)!!, a).isNotEmpty() }
+            val target = if (a.needsTarget) Rules.abilityTargets(s, s.piece(1)!!, a).first() else null
+            s = Engine.apply(s, 0, Action.UseAbility(1, a, target))
+            assertTrue(s.moved && s.abilityUsed, "falhou para $type")
+            assertEquals(0, s.currentPlayer)
+        }
     }
 
     @Test
@@ -85,7 +103,8 @@ class EngineTest {
         s = Engine.apply(s, 0, Action.UseAbility(1, Ability.CORTE_GIRATORIO))
         assertEquals(0, s.currentPlayer)
         s = Engine.apply(s, 0, Action.Move(1, Pos(0, 4)))
-        assertEquals(1, s.currentPlayer)
+        assertEquals(Pos(0, 4), s.piece(1)!!.pos)
+        assertEquals(0, s.currentPlayer)
     }
 
     @Test
@@ -182,12 +201,49 @@ class EngineTest {
     }
 
     @Test
-    fun teleportAbilityMovesWithoutDamage() {
-        var s = game(p(1, PieceType.CONJURADOR, 0, 0, 0), p(2, PieceType.ESCUDEIRO, 1, 7, 7))
-        s = Engine.apply(s, 0, Action.Move(1, Pos(1, 2)))
-        s = Engine.apply(s, 0, Action.UseAbility(1, Ability.TELEPORTE, Pos(2, 4)))
-        assertEquals(Pos(2, 4), s.piece(1)!!.pos)
-        assertEquals(1, s.currentPlayer)
+    fun thunderHitsXShapeIncludingAllies() {
+        val base = game(
+            p(1, PieceType.CONJURADOR, 0, 0, 0),
+            p(2, PieceType.ESPADACHIM, 1, 3, 3), // centro
+            p(3, PieceType.ESCUDEIRO, 1, 2, 2), // diagonal
+            p(4, PieceType.ATIRADOR, 0, 4, 2), // diagonal, aliado: cai
+            p(5, PieceType.ESPADACHIM, 1, 3, 2), // ortogonal: não atingido
+        )
+        val prev = Rules.previewDamage(base, base.piece(1)!!, Ability.CHOQUE_DO_TROVAO, Pos(3, 3))
+        assertEquals(mapOf(Pos(3, 3) to 1, Pos(2, 2) to 1, Pos(4, 2) to 1), prev)
+        val s = Engine.apply(base, 0, Action.UseAbility(1, Ability.CHOQUE_DO_TROVAO, Pos(3, 3)))
+        assertEquals(1, s.piece(2)!!.hp)
+        assertEquals(2, s.piece(3)!!.hp)
+        assertNull(s.piece(4))
+        assertEquals(2, s.piece(5)!!.hp)
+        assertFailsWith<RuleException> {
+            Engine.apply(base, 0, Action.UseAbility(1, Ability.CHOQUE_DO_TROVAO, Pos(4, 4)))
+        }
+    }
+
+    @Test
+    fun pierceAreaStopsAtSecondPiece() {
+        val s = game(
+            p(1, PieceType.ATIRADOR, 0, 0, 0),
+            p(2, PieceType.ESPADACHIM, 1, 0, 2),
+            p(3, PieceType.ESPADACHIM, 1, 0, 4),
+            p(4, PieceType.ESPADACHIM, 1, 0, 6),
+        )
+        val area = Rules.abilityArea(s, s.piece(1)!!, Ability.FLECHA_PERFURANTE, Pos(0, 5))
+        assertEquals((1..4).map { Pos(0, it) }, area)
+    }
+
+    @Test
+    fun protectedPiecesAreDetected() {
+        val s = game(
+            p(1, PieceType.ATIRADOR, 0, 0, 0),
+            p(2, PieceType.ESCUDEIRO, 0, 1, 1, ShieldMode.PROTEGER),
+            p(3, PieceType.ESCUDEIRO, 0, 2, 2),
+            p(4, PieceType.ATIRADOR, 0, 5, 5),
+        )
+        assertTrue(Rules.isProtected(s, s.piece(1)!!))
+        assertTrue(!Rules.isProtected(s, s.piece(3)!!)) // escudeiro não é protegido
+        assertTrue(!Rules.isProtected(s, s.piece(4)!!))
     }
 
     @Test
@@ -237,7 +293,8 @@ class EngineTest {
         s = Engine.apply(s, 0, Action.UseAbility(1, Ability.GOLPE_DIVINO, Pos(4, 4)))
         assertEquals(3, s.piece(2)!!.hp)
         assertNull(s.piece(1)) // espadachim tomou 2 e caiu
-        assertEquals(1, s.currentPlayer) // peça ativa morreu: turno passa
+        assertEquals(0, s.currentPlayer) // turno só passa no botão
+        assertEquals(1, Engine.apply(s, 0, Action.EndTurn).currentPlayer)
     }
 
     @Test
